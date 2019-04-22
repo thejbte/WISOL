@@ -33,7 +33,7 @@
 #define WSSFM1XRX_DL_BYTES_OFFSET 3
 
 /** Downlink frame timeout */
-#define WSSFM1XRX_DL_TIMEOUT 45//60.0
+#define WSSFM1XRX_DL_TIMEOUT 45000 /*45s*/
 
 /** Minimum report time --> 10.285 min*/
 #define WSSFM1XRX_DL_MIN_REPORT_TIME 617
@@ -45,7 +45,7 @@
 #define WSSFM1XRX_DL_REQ_PERIOD_H 6
 
 /** Downlink request period horas --> cada 6 horas*/
-#define WSSFM1XRX_DL_REQ_PERIOD_S  (WSSFM1XRX_DL_REQ_PERIOD_H*3600) // 360 21600
+#define WSSFM1XRX_DL_REQ_PERIOD_S  (WSSFM1XRX_DL_REQ_PERIOD_H*3600) /* 360 21600*/
 
 /** X time base in seconds for wakeup */
 #define WSSFM1XRX_DL_TIMEREQUEST(X)	(uint8_t)(WSSFM1XRX_DL_REQ_PERIOD_S/X)
@@ -62,7 +62,22 @@
 #define WSSFM1XRX_DL_TREP 2
 #define WSSFM1XRX_DL_P_ON_OFF  4 /*turn on off moto*/
 
+/*Delays for expected response wisol module------------------------------------------------*/
 
+/*Delay Time for WSSFM1XRX_SendMessage wisol module [ms]*/
+#define WSSFM1XRX_SEND_MESSAGE_TIME_DELAY_RESP	    1000
+
+/*GENERAL DELAY TIME FOR COMMANDS [ms]*/
+#define WSSFM1XRX_GENERAL_TIME_DELAY_RESP	500
+
+/*Delay Time for WSSFM1XRX_WakeUP wisol module [ms]*/
+#define WSSFM1XRX_WAKEUP_TIME_DELAY_RESP	1000
+
+/*Delay Time for WSSFM1XRX_SLEEP wisol module [ms]*/
+#define WSSFM1XRX_SLEEP_TIME_DELAY_RESP	    1000
+
+/*GENERAL DELAY TIME FOR COMMANDS [ms]*/
+#define WSSFM1XRX_SEND_RAW_MESSAGE_TIME_DELAY_RESP	500
 
 /**
  * @brief Pointer to Function type TickReadFcn_t : function Get Tick in ms.
@@ -128,41 +143,7 @@ typedef enum{
    WSSFM1XRX_DL_TIME_OK,		/*Time success*/
    WSSFM1XRX_DL_UNKNOWN,
    WSSFM1XRX_DL_DISCRIMINATE_ERROR
-} WSSFM1XRX_DL_Return;
-
-/*Struct  containing all data*/
-typedef struct SigfoxConfig{
-	DigitalFcn_t RST;
-	DigitalFcn_t RST2;
-	TxFnc_t TX_SIGFOX;
-	RxFnc_t RX_SIGFOX;
-	TickReadFcn_t TICK_READ;
-	/*Decodificar trama numerica return*/
-	WSSFM1XRX_DL_Return (*DiscrimateFrameTypeFcn)(struct SigfoxConfig* );	 /*as� por que depende de la misma estructura*/
-	volatile char RxFrame[100];
-	volatile char TxFrame[100];
-	volatile unsigned char RxReady;
-	volatile uint8_t RxIndex;
-	uint8_t StatusFlag;
-	uint32_t Frequency;
-	uint8_t DownLink;
-	uint16_t Delay_msInternalWaitBlock;
-	uint32_t UL_ReportTimeS;
-	uint8_t DL_NumericFrame[WSSFM1XRX_DL_PAYLOAD_SYZE];
-}WSSFM1XRXConfig_t;
-
-
-/**
- * @brief Return codes for Uplink operation.
- */
-typedef enum{
-WSSFM1XRX_INIT_OK = 0,
-WSSFM1XRX_PROCESS_FAILED, 		/*3*/
-WSSFM1XRX_CHANN_OK, 			/*4*/
-WSSFM1XRX_CHANN_NO_OK, 		/*5*/
-WSSFM1XRX_DEFAULT = 255
-}WSSFM1XRX_ULReturn;
-
+} WSSFM1XRX_DL_Return_t;
 
 /**Frequency  Hz - Uplink********************************************************
  * */
@@ -173,7 +154,7 @@ typedef enum{
 	WSSFM1XRX_UL_RCZ4 = 920800000,
 	WSSFM1XRX_UL_RCZ5 = 923300000,
 	WSSFM1XRX_UL_RCZ6 = 865200000
-}SigfoxFrequenciesUplink_t;
+}WSSFM1XRX_FreqUL_t;
 
 /** Frequency Hz- Downlink******************************************************
  * */
@@ -184,7 +165,7 @@ typedef enum{
 	WSSFM1XRX_DL_RCZ4 = 922300000,
 	WSSFM1XRX_DL_RCZ5 = 922300000,
 	WSSFM1XRX_DL_RCZ6 = 866300000
-}SigfoxFrequenciesDownlink_t;
+}WSSFM1XRX_FreqDL_t;
 
 /**
  * @brief Return codes for TIME and Expected Response operation.
@@ -194,8 +175,35 @@ typedef enum{
 	WSSFM1XRX_WAITING,
 	WSSFM1XRX_RSP_NOMATCH,
 	WSSFM1XRX_OK_RESPONSE,
-	WSSFM1XRX_NONE
+	WSSFM1XRX_NONE,
+	WSSFM1XRX_INIT_OK,
+	WSSFM1XRX_PROCESS_FAILED, 		
+	WSSFM1XRX_CHANN_OK, 			
+	WSSFM1XRX_CHANN_NO_OK, 		
+	WSSFM1XRX_DEFAULT
 }WSSFM1XRX_Return_t;
+
+/*Struct  containing all data*/
+typedef struct WSSFM1XRXConfig{
+	DigitalFcn_t RST;
+	DigitalFcn_t RST2;
+	TxFnc_t TX_WSSFM1XRX;
+	RxFnc_t RX_WSSFM1XRX;
+	TickReadFcn_t TICK_READ;
+	/*Decodificar trama numerica return*/
+	WSSFM1XRX_DL_Return_t (*DiscrimateFrameTypeFcn)(struct WSSFM1XRXConfig* );	 /*as� por que depende de la misma estructura*/
+	volatile char RxFrame[100];
+	volatile char TxFrame[100];
+	volatile unsigned char RxReady;
+	volatile uint8_t RxIndex;
+	uint8_t StatusFlag;
+	WSSFM1XRX_FreqUL_t Frequency;
+	uint8_t DownLink;
+	uint16_t Delay_msInternalWaitBlock;
+	uint32_t UL_ReportTimeS;
+	uint8_t DL_NumericFrame[WSSFM1XRX_DL_PAYLOAD_SYZE];
+}WSSFM1XRXConfig_t;
+
 
 /**
  * @brief  Pointer to function type WSSFM1XRX_WaitMode_t
@@ -213,10 +221,10 @@ typedef WSSFM1XRX_Return_t (*WSSFM1XRX_WaitMode_t)(WSSFM1XRXConfig_t* ,uint32_t)
 
 /**
  * @brief Function initialize the Wisol module.
- * @param obj Structure containing all data from the Sigfox module.
- * @return Operation result in the form WSSFM1XRX_ULReturn.
+ * @param obj Structure containing all data from the Wisol module.
+ * @return Operation result in the form WSSFM1XRX_Return_t.
  */
-WSSFM1XRX_ULReturn SigfoxInit(WSSFM1XRXConfig_t *obj, DigitalFcn_t Reset, DigitalFcn_t Reset2, TxFnc_t Tx_SigFox, RxFnc_t Rx_SigFox,uint32_t Frequency_Tx, WSSFM1XRX_DL_Return (*DiscrimateFrameTypeFCN)(struct SigfoxConfig* ) ,TickReadFcn_t TickRead, uint16_t DelayInternalWaitBlock);
+WSSFM1XRX_Return_t WSSFM1XRX_Init(WSSFM1XRXConfig_t *obj, DigitalFcn_t Reset, DigitalFcn_t Reset2, TxFnc_t Tx_Wssfm1xrx, RxFnc_t Rx_Wssfm1xrx,WSSFM1XRX_FreqUL_t Frequency_Tx, WSSFM1XRX_DL_Return_t (*DiscrimateFrameTypeFCN)(struct WSSFM1XRXConfig* ) ,TickReadFcn_t TickRead, uint16_t DelayInternalWaitBlock);
 
 
 /**
@@ -306,9 +314,9 @@ char* WSSFM1XRX_AskChannels(WSSFM1XRXConfig_t *obj, WSSFM1XRX_WaitMode_t Wait );
 /**  Revisar DOC--------
  * @brief Function verificate channels of the transceiver.
  * @param obj Structure containing all data from the Sigfox module.
- * @return Operation result in the form WSSFM1XRX_ULReturn.
+ * @return Operation result in the form WSSFM1XRX_Return_t.
 */
-WSSFM1XRX_ULReturn WSSFM1XRX_CheckChannels(WSSFM1XRXConfig_t *obj, WSSFM1XRX_WaitMode_t Wait );
+WSSFM1XRX_Return_t WSSFM1XRX_CheckChannels(WSSFM1XRXConfig_t *obj, WSSFM1XRX_WaitMode_t Wait );
 
 /**
  * @brief Function reset channels from Wisol module.
@@ -360,7 +368,7 @@ WSSFM1XRX_Return_t WSSFM1XRX_SendMessage(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMo
  * @param obj Structure containing all data from the Sigfox module.
  * @return void.
  */
-void SigfoxISRRX(WSSFM1XRXConfig_t *obj);
+void WSSFM1XRX_ISRRX(WSSFM1XRXConfig_t *obj);
 
 /**
  * @brief Function verificate response received from Wisol module.
@@ -373,8 +381,8 @@ WSSFM1XRX_Return_t WSSFM1XRX_MatchResponse(WSSFM1XRXConfig_t *obj, char *expecte
  * @brief Function to discriminate downlink frames.
  * @param obj Structure containing the incoming frame from the Sigfox module.
  * @param retVal Pointer to return a value.
- * @return Operation result in the form WSSFM1XRX_DL_Return.
+ * @return Operation result in the form WSSFM1XRX_DL_Return_t.
  */
-WSSFM1XRX_DL_Return DL_DiscriminateDownLink(WSSFM1XRXConfig_t* buff);
+WSSFM1XRX_DL_Return_t DL_DiscriminateDownLink(WSSFM1XRXConfig_t* buff);
 
 #endif /* SOURCES_WSSFM1XRX_H_ */

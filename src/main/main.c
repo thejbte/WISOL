@@ -76,10 +76,11 @@ struct timespec tmm = {0,0.5*1e9}; /*0.5 s*/
 int main(int argc, char** argv) {
     uint32_t x = 0;
     char* str = NULL;
-    x = SigfoxInit( &SigfoxConfig,rst,rst2,txsigfox ,NULL,WSSFM1XRX_UL_RCZ4,NULL,GetTick_ms,500);
+    x = WSSFM1XRX_Init( &SigfoxConfig,rst,rst2,txsigfox ,NULL,WSSFM1XRX_UL_RCZ4,NULL,GetTick_ms,500);
     pthread_create(&hilo, NULL, hilo_time, NULL);
     
     for(;;){
+
         /*nanosleep(&tmm, NULL);*/ /*100ms*/          
          
          /*TEST DE FUNCIONES, PENDIENTE PROBAR CON*/

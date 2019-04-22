@@ -10,10 +10,9 @@
 
 /*NOTAS A CORREGIR-NO OLVIDAR
 Cambiar vector rx y tx frame por un puntero ??
-*rtardos de las funciones como deben ir , inicalizado en init o cada
-funcion le ingrese el retardo para el comando?? como hacer cuando la funcion
-es externa con el argumento.
-Cambiar nombres relacionados con sigfox de la estructura 
+rst y rst2???
+State_SigfoxChangeFrequencyDL falta
+Downlink tiempo como se hace en la espera de la respuesta del ok
 */
 
 #include "Sigfox.h"
@@ -21,7 +20,7 @@ Cambiar nombres relacionados con sigfox de la estructura
 /** Private Prototypes************************************************************************************************************************ */
 
 /*Function to  wait response with delay*/
-static WSSFM1XRX_Return_t WSSFM1XRX_WaitForResponse(WSSFM1XRXConfig_t *obj ,char *ExpectedResponse, WSSFM1XRX_WaitMode_t Wait );
+static WSSFM1XRX_Return_t WSSFM1XRX_WaitForResponse(WSSFM1XRXConfig_t *obj ,char *ExpectedResponse, WSSFM1XRX_WaitMode_t Wait, uint32_t msec );
 
 /*Function to  transmit*/
 static void WSSFM1XRX_StringTX(WSSFM1XRXConfig_t *obj, char* SigfoxString);
@@ -51,15 +50,15 @@ char NibbletoX(uint8_t value);
 /**
  * @brief Function initialize the Wisol module.
  * @note Example :
- * 		SigfoxModule.StatusFlag = SigfoxInit(&SigfoxModule, RSTCtrl_Sigfox, RST2Ctrl_Sigfox, UART_SIGFOX_TX_STM, UART_SIGFOX_RX_STM ,UL_RCZ4);
+ * 		SigfoxModule.StatusFlag = WSSFM1XRX_Init(&SigfoxModule, RSTCtrl_Sigfox, RST2Ctrl_Sigfox, UART_SIGFOX_TX_STM, UART_SIGFOX_RX_STM ,WSSFM1XRX_UL_RCZ4,NULL,GetTick_ms,500);
  * @param obj Structure containing all data from the Sigfox module.
- * @return Operation result in the form WSSFM1XRX_ULReturn.
+ * @return Operation result in the form WSSFM1XRX_Return_t.
  */
-WSSFM1XRX_ULReturn SigfoxInit(WSSFM1XRXConfig_t *obj, DigitalFcn_t Reset, DigitalFcn_t Reset2,TxFnc_t Tx_SigFox, RxFnc_t Rx_SigFox,uint32_t Frequency_Tx,WSSFM1XRX_DL_Return (*DiscrimateFrameTypeFCN)(struct SigfoxConfig* ) , TickReadFcn_t TickRead, uint16_t DelayInternalWaitBlock){
+WSSFM1XRX_Return_t WSSFM1XRX_Init(WSSFM1XRXConfig_t *obj, DigitalFcn_t Reset, DigitalFcn_t Reset2,TxFnc_t Tx_Wssfm1xrx, RxFnc_t Rx_Wssfm1xrx,WSSFM1XRX_FreqUL_t Frequency_Tx,WSSFM1XRX_DL_Return_t (*DiscrimateFrameTypeFCN)(struct WSSFM1XRXConfig* ) , TickReadFcn_t TickRead, uint16_t DelayInternalWaitBlock){
 	obj->RST=Reset;
 	obj->RST2=Reset2;
-	obj->TX_SIGFOX=Tx_SigFox;
-	obj->RX_SIGFOX=Rx_SigFox;
+	obj->TX_WSSFM1XRX=Tx_Wssfm1xrx;
+	obj->RX_WSSFM1XRX=Rx_Wssfm1xrx;
 	obj->DiscrimateFrameTypeFcn = DiscrimateFrameTypeFCN;
 	obj->TICK_READ = TickRead;
 	memset( (void *) obj->RxFrame,0,sizeof(obj->RxFrame));
@@ -132,8 +131,9 @@ WSSFM1XRX_Return_t WSSFM1XRX_Wait_Block(WSSFM1XRXConfig_t *obj, uint32_t msec){
 WSSFM1XRX_Return_t WSSFM1XRX_Sleep(WSSFM1XRXConfig_t *obj ,WSSFM1XRX_WaitMode_t Wait ){
 	obj->RST(1);
 	obj->RST2(1);
+	WSSFM1XRX_ResetObject(obj);
 	WSSFM1XRX_StringTX(obj,"AT$P=2\r");
-	return WSSFM1XRX_WaitForResponse(obj,"OK",Wait);
+	return WSSFM1XRX_WaitForResponse(obj,"OK",Wait,WSSFM1XRX_SLEEP_TIME_DELAY_RESP);
 }
 
 
@@ -147,7 +147,7 @@ WSSFM1XRX_Return_t WSSFM1XRX_Sleep(WSSFM1XRXConfig_t *obj ,WSSFM1XRX_WaitMode_t 
  */
 void WSSFM1XRX_WakeUP(WSSFM1XRXConfig_t *obj ,WSSFM1XRX_WaitMode_t Wait  ){
 	obj->RST(SF_FALSE);
-	if(WSSFM1XRX_TIMEOUT == Wait(obj,1000)) {
+	if(WSSFM1XRX_TIMEOUT == Wait(obj,WSSFM1XRX_WAKEUP_TIME_DELAY_RESP)) {
 		obj->RST(SF_TRUE);
 		obj->RST2(SF_TRUE);
 	}
@@ -167,7 +167,7 @@ void WSSFM1XRX_WakeUP(WSSFM1XRXConfig_t *obj ,WSSFM1XRX_WaitMode_t Wait  ){
 WSSFM1XRX_Return_t WSSFM1XRX_CheckModule(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait ){
 	WSSFM1XRX_ResetObject(obj);
 	WSSFM1XRX_StringTX(obj,"AT\r");
-	return WSSFM1XRX_WaitForResponse(obj,"OK",Wait);
+	return WSSFM1XRX_WaitForResponse(obj,"OK",Wait,WSSFM1XRX_GENERAL_TIME_DELAY_RESP);
 }
 
 /**
@@ -181,8 +181,8 @@ WSSFM1XRX_Return_t WSSFM1XRX_CheckModule(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMo
 char* WSSFM1XRX_GetID(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait ){
 	WSSFM1XRX_ResetObject(obj);
 	WSSFM1XRX_StringTX(obj,"AT$I=10\r");
-	if(WSSFM1XRX_TIMEOUT ==Wait(obj,500)){}
-	if( obj->RxReady ){
+	if(WSSFM1XRX_TIMEOUT ==Wait(obj,WSSFM1XRX_GENERAL_TIME_DELAY_RESP)){}
+	if( obj->RxReady ){  
 		return (char*)obj->RxFrame ;
 	}else return NULL;
 	/*return NULL;*/
@@ -199,7 +199,7 @@ char* WSSFM1XRX_GetID(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait ){
 char* WSSFM1XRX_GetPAC(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait ){
 	WSSFM1XRX_ResetObject(obj);
 	WSSFM1XRX_StringTX(obj,"AT$I=11\r");
-	if(WSSFM1XRX_TIMEOUT ==Wait(obj,500)){}
+	if(WSSFM1XRX_TIMEOUT ==Wait(obj,WSSFM1XRX_GENERAL_TIME_DELAY_RESP)){}
 	if( obj->RxReady ){
 		return (char*)obj->RxFrame ;
 	}else return NULL;
@@ -217,7 +217,7 @@ char* WSSFM1XRX_GetPAC(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait ){
 char* WSSFM1XRX_GetVoltage(WSSFM1XRXConfig_t *obj, WSSFM1XRX_WaitMode_t Wait ){
 	WSSFM1XRX_ResetObject(obj);
 	WSSFM1XRX_StringTX(obj,"AT$V?\r");
-	if(WSSFM1XRX_TIMEOUT ==Wait(obj,500)){}
+	if(WSSFM1XRX_TIMEOUT ==Wait(obj,WSSFM1XRX_GENERAL_TIME_DELAY_RESP)){}
 	if( obj->RxReady ){
 		return (char*)obj->RxFrame ;
 	}else return NULL;
@@ -235,7 +235,7 @@ char* WSSFM1XRX_GetVoltage(WSSFM1XRXConfig_t *obj, WSSFM1XRX_WaitMode_t Wait ){
 char* WSSFM1XRX_SendRawMessage(WSSFM1XRXConfig_t *obj,char* Payload,char* ExpectedResponse,WSSFM1XRX_WaitMode_t Wait){
 	WSSFM1XRX_ResetObject(obj);
 	WSSFM1XRX_StringTX(obj,Payload);
-	if(WSSFM1XRX_TIMEOUT ==Wait(obj,500)){}
+	if(WSSFM1XRX_TIMEOUT ==Wait(obj,WSSFM1XRX_SEND_RAW_MESSAGE_TIME_DELAY_RESP)){}
 	if( obj->RxReady ){
 		return (char*)obj->RxFrame ;
 	}else return NULL;
@@ -253,7 +253,7 @@ char* WSSFM1XRX_SendRawMessage(WSSFM1XRXConfig_t *obj,char* Payload,char* Expect
 char* WSSFM1XRX_AskChannels(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait ){
 	WSSFM1XRX_ResetObject(obj);
 	WSSFM1XRX_StringTX(obj,"AT$GI?\r");
-	if(WSSFM1XRX_TIMEOUT ==Wait(obj,500)){}
+	if(WSSFM1XRX_TIMEOUT ==Wait(obj,WSSFM1XRX_GENERAL_TIME_DELAY_RESP)){}
 	if( obj->RxReady ){
 		return (char*)obj->RxFrame ;
 	}else return NULL;
@@ -264,11 +264,11 @@ char* WSSFM1XRX_AskChannels(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait ){
  * @note Example :
  * 		WSSFM1XRX_CheckChannels(&SigfoxModule);
  * @param obj Structure containing all data from the Sigfox module.
- * @return Operation result in the form WSSFM1XRX_ULReturn.
+ * @return Operation result in the form WSSFM1XRX_Return_t.
  * 			WSSFM1XRX_CHANN_NO_OK   : se debe resetear canales
  *			WSSFM1XRX_CHANN_OK      : No se resetea canales
  */
-WSSFM1XRX_ULReturn WSSFM1XRX_CheckChannels(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait ){
+WSSFM1XRX_Return_t WSSFM1XRX_CheckChannels(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait ){
 	uint8_t x,y;
 	char* rspPtr;
 	char *x_y;
@@ -296,7 +296,7 @@ WSSFM1XRX_ULReturn WSSFM1XRX_CheckChannels(WSSFM1XRXConfig_t *obj,WSSFM1XRX_Wait
 WSSFM1XRX_Return_t WSSFM1XRX_ResetChannels(WSSFM1XRXConfig_t *obj, WSSFM1XRX_WaitMode_t Wait ){
 	WSSFM1XRX_ResetObject(obj);
 	WSSFM1XRX_StringTX(obj,"AT$RC\r");
-	return WSSFM1XRX_WaitForResponse(obj,"OK",Wait);
+	return WSSFM1XRX_WaitForResponse(obj,"OK",Wait,WSSFM1XRX_GENERAL_TIME_DELAY_RESP);
 }
 
 /**
@@ -312,10 +312,10 @@ WSSFM1XRX_Return_t WSSFM1XRX_ResetChannels(WSSFM1XRXConfig_t *obj, WSSFM1XRX_Wai
 WSSFM1XRX_Return_t WSSFM1XRX_ChangeFrequencyUL(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait ){
 	char Frequency[SIGFOX_MAX_BUFF_FREQ];
 	memset(Frequency,0,sizeof(Frequency));
-	sprintf(Frequency,"AT$IF=%lu\r",obj->Frequency);
+	sprintf(Frequency,"AT$IF=%u\r",obj->Frequency); 
 	WSSFM1XRX_ResetObject(obj);
 	WSSFM1XRX_StringTX(obj,Frequency);
-	return WSSFM1XRX_WaitForResponse(obj,"OK",Wait);
+	return WSSFM1XRX_WaitForResponse(obj,"OK",Wait,WSSFM1XRX_GENERAL_TIME_DELAY_RESP);
 }
 
 /**
@@ -329,7 +329,7 @@ WSSFM1XRX_Return_t WSSFM1XRX_ChangeFrequencyUL(WSSFM1XRXConfig_t *obj,WSSFM1XRX_
 char* WSSFM1XRX_AskFrequencyUL(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait ){
 	WSSFM1XRX_ResetObject(obj);
 	WSSFM1XRX_StringTX(obj,"AT$IF?\r");
-	if(WSSFM1XRX_TIMEOUT == Wait(obj,500)){}
+	if(WSSFM1XRX_TIMEOUT == Wait(obj,WSSFM1XRX_GENERAL_TIME_DELAY_RESP)){}
 	if( obj->RxReady ){
 		return (char*)obj->RxFrame ;
 	}else return NULL;
@@ -348,7 +348,7 @@ char* WSSFM1XRX_AskFrequencyUL(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait 
 WSSFM1XRX_Return_t WSSFM1XRX_SaveParameters(WSSFM1XRXConfig_t *obj, WSSFM1XRX_WaitMode_t Wait ){
 	WSSFM1XRX_ResetObject(obj);
 	WSSFM1XRX_StringTX(obj,"AT$WR\r");
-	return WSSFM1XRX_WaitForResponse(obj,"OK",Wait);
+	return WSSFM1XRX_WaitForResponse(obj,"OK",Wait,WSSFM1XRX_GENERAL_TIME_DELAY_RESP);
 }
 
 
@@ -370,18 +370,18 @@ WSSFM1XRX_Return_t WSSFM1XRX_SaveParameters(WSSFM1XRXConfig_t *obj, WSSFM1XRX_Wa
  */
 WSSFM1XRX_Return_t WSSFM1XRX_SendMessage(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait, void* data, uint8_t size, uint8_t eDownlink){
 	char str[SIGFOX_MAX_DATA_SIZE] = {0};
+	uint32_t timeWait = WSSFM1XRX_SEND_MESSAGE_TIME_DELAY_RESP;
 	WSSFM1XRX_ResetObject(obj);
 
 	WSSFM1XRX_BuildFrame(str, data, size);
 	WSSFM1XRX_StringTX(obj,"AT$SF=");
 	WSSFM1XRX_StringTX(obj, str);
-	if(!eDownlink) WSSFM1XRX_StringTX(obj, "\r");
-	else{
-		WSSFM1XRX_StringTX(obj, ",1\r");
-		obj->DownLink = 1; /* Flag the downlink */
-	}
+	
+	WSSFM1XRX_StringTX(obj, ( obj->DownLink = eDownlink )?  ",1\r" : "\r");
 	strcpy((char *)obj->TxFrame,(const char *)str);
-	return WSSFM1XRX_WaitForResponse(obj,"OK",Wait);
+	timeWait = eDownlink ? WSSFM1XRX_DL_TIMEOUT : WSSFM1XRX_SEND_MESSAGE_TIME_DELAY_RESP;
+
+	return WSSFM1XRX_WaitForResponse(obj,"OK",Wait,timeWait);
 }
 
 /**
@@ -393,10 +393,10 @@ WSSFM1XRX_Return_t WSSFM1XRX_SendMessage(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMo
  * @param obj Structure containing all data from the Sigfox module.
  * @return void.
  */
-void SigfoxISRRX(WSSFM1XRXConfig_t *obj){
+void WSSFM1XRX_ISRRX(WSSFM1XRXConfig_t *obj){
 	unsigned char rxChar_Sigfox;
 
-	obj->RX_SIGFOX(&rxChar_Sigfox);
+	obj->RX_WSSFM1XRX(&rxChar_Sigfox);
 	if(obj->RxReady) return; /* B_uffer reveived*/
 	obj->RxFrame[obj->RxIndex++] = rxChar_Sigfox;
 	if (obj->RxIndex>=sizeof(obj->RxFrame)-1) obj->RxIndex=0;
@@ -434,9 +434,9 @@ WSSFM1XRX_Return_t WSSFM1XRX_MatchResponse(WSSFM1XRXConfig_t *obj, char *expecte
  * @brief Function to discriminate downlink frames.
  * @param obj Structure containing the incoming frame from the Sigfox module.
  * @param retVal Pointer to return a value.
- * @return Operation result in the form WSSFM1XRX_DL_Return.
+ * @return Operation result in the form WSSFM1XRX_DL_Return_t.
  */
-WSSFM1XRX_DL_Return DL_DiscriminateDownLink(WSSFM1XRXConfig_t* obj){
+WSSFM1XRX_DL_Return_t DL_DiscriminateDownLink(WSSFM1XRXConfig_t* obj){
     uint8_t* payLoadHead;
     uint8_t* payLoadTail;
     uint8_t byteIndex = WSSFM1XRX_DL_BYTES_OFFSET;
@@ -474,7 +474,7 @@ WSSFM1XRX_DL_Return DL_DiscriminateDownLink(WSSFM1XRXConfig_t* obj){
 
 /*Private Functions ********************************************************************************************************************************/
 static void WSSFM1XRX_StringTX(WSSFM1XRXConfig_t *obj, char* WSSFM1XRX_String){
-	while(*WSSFM1XRX_String) {obj->TX_SIGFOX(NULL,*WSSFM1XRX_String);WSSFM1XRX_String++;}
+	while(*WSSFM1XRX_String) {obj->TX_WSSFM1XRX(NULL,*WSSFM1XRX_String);WSSFM1XRX_String++;}
 }
 
 /*Private Functions ***********************************************************************************************************************************************/
@@ -510,17 +510,16 @@ static void WSSFM1XRX_BuildFrame(char* str, void* data, uint8_t size){
 /**
  * @brief Function wait for response expected.
  */
-static WSSFM1XRX_Return_t WSSFM1XRX_WaitForResponse(WSSFM1XRXConfig_t *obj , char *ExpectedResponse, WSSFM1XRX_WaitMode_t Wait ){
+static WSSFM1XRX_Return_t WSSFM1XRX_WaitForResponse(WSSFM1XRXConfig_t *obj , char *ExpectedResponse, WSSFM1XRX_WaitMode_t Wait ,uint32_t msec){
    uint8_t retvalue = WSSFM1XRX_NONE;
     if( WSSFM1XRX_MatchResponse(obj,ExpectedResponse)  == WSSFM1XRX_RSP_NOMATCH ){  /*mientras no sea resp = */
        
 	   if( (Wait != WSSFM1XRX_Wait_Block) || (Wait != WSSFM1XRX_Wait_Block) ){
-		   retvalue = Wait(obj,500);
+		   retvalue = Wait(obj,msec);
 		   retvalue = WSSFM1XRX_MatchResponse(obj, ExpectedResponse);
 	   }
-	   else retvalue =  Wait(obj,500);
-	   /*retvalue =  Wait(obj,500);*/
-	/*	printf("retvalue %d",retvalue);*/
+	   else retvalue =  Wait(obj,msec);
+	  	 /*retvalue =  Wait(obj,500);*/
        if(retvalue == WSSFM1XRX_TIMEOUT){  /*Delay blocking*/
            return WSSFM1XRX_MatchResponse(obj, ExpectedResponse);
        }
