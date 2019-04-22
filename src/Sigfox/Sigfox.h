@@ -1,9 +1,9 @@
 /*!
  * *******************************************************************************
- * @file Sigfox.h
- * @author modified by julian bustamante
+ * @file WSSFM1XRX.h
+ * @author julian bustamante
  * @version 1.2.0
- * @date Mar 27, 2019
+ * @date April 18, 2019
  * @brief Sigfox interface for the sigfox module. Interface
  * specific for module wisol SFM11R2D.
  *********************************************************************************/

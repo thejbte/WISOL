@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
     for(;;){
         /*nanosleep(&tmm, NULL);*/ /*100ms*/          
          
-         /*TEST DE FUNCIONES, PENDIENTE PROBAR CON UNITY*/
+         /*TEST DE FUNCIONES, PENDIENTE PROBAR CON*/
         /*x     = WSSFM1XRX_Sleep(&SigfoxConfig,(WSSFM1XRX_WaitMode_t)WSSFM1XRX_Wait_Block);*/
         /*str   = WSSFM1XRX_GetID(&SigfoxConfig);*/
         /*str   = WSSFM1XRX_GetPAC(&SigfoxConfig);*/
