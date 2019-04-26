@@ -8,9 +8,17 @@
  * specific for module wisol SFM11R2D.
  *********************************************************************************/
 
-/*NOTAS A CORREGIR-NO OLVIDAR
+/*NOTAS A CORREGIR-SOLO FORMATO-FUNCIONANDO MUY BIEN-NO OLVIDAR
+
+-PROBAR PREGUNTAR POR FREQ
+-ARGUMENTO DE ENTRADA PUNTERO QUE MODIFIQUE LA VARIABLE PARA FUNCIONES FREQ,ID,PAC,VOLTAJE Y QUE RETORNE OK O NO
+-VOLTAJE QUE RETORNE NUMERICO
+-ASK CHANNELS QUE RETORNE X,Y EN UNA ESTRUCTURA
+-ASKFREQ RETORNAR TIPO DEFRECUENCIA Y NO UINT32_T
+-TODAS LAS FUNCIONES QUE ENVIEN COMANDOS deben devolver si fue o no timeout 
+-reutilizar sendrawmessage o crear una para reutilizarla , codigo repetido, verificar respuesta o si es NULL el expected no esperar nada
 Cambiar vector rx y tx frame por un puntero ??
-rst y rst2???
+rst y rst2 cambiar nombres
 State_SigfoxChangeFrequencyDL falta
 Downlink tiempo como se hace en la espera de la respuesta del ok
 */
