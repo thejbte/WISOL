@@ -2,8 +2,8 @@
  * *******************************************************************************
  * @file WSSFM1XRX.c
  * @author julian bustamante
- * @version 1.4.1
- * @date Oct 11, 2019
+ * @version 1.4.2
+ * @date Jan 5, 2020
  * @brief Sigfox interface for the sigfox module. Interface
  * specific for module wisol SFM11R2D.
  *********************************************************************************/
@@ -14,11 +14,11 @@
 Si por algun motivo no responde el gettick, la no bloqueante se queda en waitting cambiar variables y agregarlas a una estructura para reiniciar la estructura en la plaicación en su momento??
 Puede que pase...
 
--SENDRAW QUE NO ESPERE EN DOENLINK?
  */
 
 #include "wssfm1xrx.h"
-#include "Kernel/QuarkTS.h"
+
+
 /** Private Prototypes************************************************************************************************************************ */
 
 /*Function to  wait response with delay*/
@@ -39,10 +39,9 @@ char NibbletoX(uint8_t value);
 /*Definitions Private**************************************************************************************************************************/
 
 /*Maximo tamaño buffer char*/
-#define WSSFM1XRX_MAX_DATA_SIZE 		25 /*25*/
-
+#define WSSFM1XRX_MAX_DATA_SIZE 		25
 /*Maximo tamaño buffer char*/
-#define WSSFM1XRX_MAX_DATA_SIZE_WITH_DL 		37 /*25*/
+#define WSSFM1XRX_MAX_DATA_SIZE_WITH_DL 		37
 
 /*Maximo tamaño trama hex string*/
 #define	WSSFM1XRX_MAX_BYTE_TX_FRAME	12
@@ -52,21 +51,21 @@ char NibbletoX(uint8_t value);
 
 
 const char *WSSFM1XRX_UL_FREQUENCIES[6] ={
-	 "AT$IF=868130000\r",
-	 "AT$IF=902200000\r",
-	 "AT$IF=923200000\r",
-	 "AT$IF=920800000\r",
-	 "AT$IF=923300000\r",
-	 "AT$IF=865200000\r"
+		"AT$IF=868130000\r",
+		"AT$IF=902200000\r",
+		"AT$IF=923200000\r",
+		"AT$IF=920800000\r",
+		"AT$IF=923300000\r",
+		"AT$IF=865200000\r"
 };
 
 const char *WSSFM1XRX_DL_FREQUENCIES[6] ={
-	 "AT$DR=869525000\r",
-	 "AT$DR=905200000\r",
-	 "AT$DR=922200000\r",
-	 "AT$DR=922300000\r",
-	 "AT$DR=922300000\r",
-	 "AT$DR=866300000\r"
+		"AT$DR=869525000\r",
+		"AT$DR=905200000\r",
+		"AT$DR=922200000\r",
+		"AT$DR=922300000\r",
+		"AT$DR=922300000\r",
+		"AT$DR=866300000\r"
 };
 
 /*Public Functions*/
@@ -113,13 +112,14 @@ WSSFM1XRX_Return_t WSSFM1XRX_Init(WSSFM1XRXConfig_t *obj, DigitalFcn_t Reset, Di
  */
 WSSFM1XRX_Return_t WSSFM1XRX_Wait_NonBlock(WSSFM1XRXConfig_t *obj, uint32_t msec){
 	static uint8_t RetValue;
-	static uint32_t WSSFM1XRX_StartTick = 0;
+	static volatile uint32_t WSSFM1XRX_StartTick = 0;
 	if(obj->State_W == WSSFM1XRX_W_IDLE ){
 		RetValue = WSSFM1XRX_WAITING ;
 		WSSFM1XRX_StartTick = 0;
 		WSSFM1XRX_StartTick = obj->TICK_READ() ;/*tickRead_ms();*/
 		obj->State_W = WSSFM1XRX_W_RUNNING ;
 	}
+
 	if( ( obj->TICK_READ() - WSSFM1XRX_StartTick) > msec ){ 
 		obj->State_W = WSSFM1XRX_W_IDLE;
 		obj->State_Api = WSSFM1XRX_IDLE; /*Cuando vence el tiempo mando el comando de nuevo*/
@@ -201,7 +201,7 @@ WSSFM1XRX_Return_t WSSFM1XRX_ResetModule(WSSFM1XRXConfig_t *obj ,WSSFM1XRX_WaitM
 	static WSSFM1XRX_Return_t RetValue = WSSFM1XRX_NONE, RetValueAux = WSSFM1XRX_NONE;
 	if( WSSFM1XRX_NONE ==  RetValueAux ) {
 		WSSFM1XRX_ResetObject(obj);
- 		obj->RST2(SF_FALSE);  /*Reset*/
+		obj->RST2(SF_FALSE);  /*Reset*/
 		RetValueAux = WSSFM1XRX_WAITING;
 	}
 	RetValue =  Wait(obj,WSSFM1XRX_SLEEP_TIME_RESET); /*Return WAITING or TIMEOUT*/
@@ -319,9 +319,8 @@ WSSFM1XRX_Return_t WSSFM1XRX_SendRawMessage(WSSFM1XRXConfig_t *obj,char* Payload
 	if(WSSFM1XRX_TIMEOUT == RetValue || WSSFM1XRX_OK_RESPONSE == RetValue){
 		if( obj->RxReady ){ 
 			if(BuffStr != NULL) strcpy((char*)BuffStr, (char*)obj->RxFrame) ;
-			RetValue = WSSFM1XRX_OK_RESPONSE;
 			obj->NumberRetries = 0;
-		} //else if(Payload != NULL)	RetValue = WSSFM1XRX_FAILURE;
+		}
 		obj->State_Api = WSSFM1XRX_IDLE;
 	}
 	return RetValue;
@@ -365,7 +364,6 @@ WSSFM1XRX_Return_t WSSFM1XRX_CheckChannels(WSSFM1XRXConfig_t *obj,WSSFM1XRX_Wait
 	Channels_t Channels ={0,0};
 	WSSFM1XRX_Return_t retval;
 	retval = WSSFM1XRX_AskChannels(obj,Wait,&Channels);
-
 	if(WSSFM1XRX_OK_RESPONSE == retval){
 		retval = (Channels.x == 0 || Channels.y < 3) ? WSSFM1XRX_CHANN_NO_OK : WSSFM1XRX_CHANN_OK;
 	}
@@ -383,6 +381,7 @@ WSSFM1XRX_Return_t WSSFM1XRX_CheckChannels(WSSFM1XRXConfig_t *obj,WSSFM1XRX_Wait
  * 			<< WSSFM1XRX_RSP_NOMATCH >> If response expected is not correct 
  **/
 WSSFM1XRX_Return_t WSSFM1XRX_ResetChannels(WSSFM1XRXConfig_t *obj, WSSFM1XRX_WaitMode_t Wait ){
+
 	return WSSFM1XRX_SendRawMessage(obj,"AT$RC\r","OK",NULL,Wait,WSSFM1XRX_GENERAL_TIME_DELAY_RESP); 
 }
 
@@ -482,10 +481,9 @@ WSSFM1XRX_Return_t WSSFM1XRX_SendMessage(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMo
 	else{
 		UplinkPayload[slen]='\r';
 	}
-	
+
 	timeWait = eDownlink ? WSSFM1XRX_DL_TIMEOUT : WSSFM1XRX_SEND_MESSAGE_TIME_DELAY_RESP; /*WSSFM1XRX_DL_TIMEOUT*/
 	if(CopyDataTx != NULL ) memcpy(CopyDataTx,UplinkPayload,WSSFM1XRX_MAX_DATA_SIZE_WITH_DL);
-
 	return WSSFM1XRX_SendRawMessage(obj, UplinkPayload, "OK", NULL, Wait, timeWait);
 }
 
@@ -507,12 +505,10 @@ void WSSFM1XRX_ISRRX(WSSFM1XRXConfig_t *obj, const char RxChar){
 	if (RxChar =='\r'){
 		/*  Check if there is a downlink request */
 		if(!obj->DownLink){
-			obj->RxFrame;
 			obj->RxIndex = 0;
 			obj->RxReady = SF_TRUE; /* Framed completed*/
 		}else
 			obj->DownLink = 0; /* Clear the downlink request */
-			//obj->RxReady = SF_TRUE; /* Framed completed*/
 	}
 }
 
@@ -595,6 +591,7 @@ static void WSSFM1XRX_ResetObject(WSSFM1XRXConfig_t *obj){
 	obj->RxIndex=0;
 	obj->RxReady=SF_FALSE;
 	obj->State_Api = WSSFM1XRX_IDLE; /*verificar*/
+	obj->State_W = WSSFM1XRX_W_IDLE; /*verificar*/
 }
 
 

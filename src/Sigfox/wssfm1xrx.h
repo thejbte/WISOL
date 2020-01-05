@@ -2,8 +2,8 @@
  * *******************************************************************************
  * @file WSSFM1XRX.h
  * @author julian bustamante
- * @version 1.4.1
- * @date Oct 11, 2019
+ * @version 1.4.2
+ * @date Jan 5, 2020
  * @brief Sigfox interface for the sigfox module. Interface
  * specific for module wisol SFM11R2D.
  *********************************************************************************/
@@ -16,8 +16,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define WSSFM1XRX_VERSION    "1.4.1"
-#define WSSFM1XRX_CAPTION     "WSSFM1XRX" WSSFM1XRX_VERSION
+#define WSSFM1XRX_VERSION    "1.4.2"
+#define WSSFM1XRX_CAPTION     "WSSFM1XRX " WSSFM1XRX_VERSION
 
 /*BOOL VALUES*/
 #define SF_TRUE						1
@@ -67,7 +67,7 @@
 
 
 /*length buffer to transmition*/
-#define WSSFM1XRX_BUFF_TX_FRAME_LENGTH 35
+#define WSSFM1XRX_BUFF_TX_FRAME_LENGTH 37
 
 /*length buffer to reception*/
 #define WSSFM1XRX_BUFF_RX_FRAME_LENGTH 45
@@ -75,10 +75,10 @@
 /*Delays for expected response WISOL module------------------------------------------------*/
 
 /*Delay Time for WSSFM1XRX_SendMessage WISOL module [ms]*/
-#define WSSFM1XRX_SEND_MESSAGE_TIME_DELAY_RESP	    6000
+#define WSSFM1XRX_SEND_MESSAGE_TIME_DELAY_RESP	    6000 /*6000*/
 
 /*GENERAL DELAY TIME FOR COMMANDS [ms]*/
-#define WSSFM1XRX_GENERAL_TIME_DELAY_RESP	1500
+#define WSSFM1XRX_GENERAL_TIME_DELAY_RESP	4000 /*with 1500 ms timeout before receiving */
 
 /*Delay Time for WSSFM1XRX_WakeUP WISOL module [ms]*/
 #define WSSFM1XRX_WAKEUP_TIME_DELAY_PULSE	100
@@ -87,7 +87,7 @@
 #define WSSFM1XRX_WAKEUP_WAIT_TIME_DELAY_RESP	300
 
 /*Delay Time for WSSFM1XRX_SLEEP WISOL module [ms]*/
-#define WSSFM1XRX_SLEEP_TIME_DELAY_RESP	    500
+#define WSSFM1XRX_SLEEP_TIME_DELAY_RESP	    500 /*500*/
 
 #define WSSFM1XRX_SLEEP_TIME_RESET	       1000
 
@@ -159,13 +159,13 @@ typedef unsigned char (*RxFnc_t)(unsigned char*);
  * @brief Return codes for downlink operation.
  */
 typedef enum{
-   WSSFM1XRX_DL_SUCCESS,      /* Downlink successfully processed */
-   WSSFM1XRX_DL_HEAD_ERROR,   /* Could not find RX */
-   WSSFM1XRX_DL_TAIL_ERROR,   /* Could not find \r */
-   WSSFM1XRX_DL_LENGTH_ERROR, /* Wrong length */
-   WSSFM1XRX_DL_TIME_OK,		/*Time success*/
-   WSSFM1XRX_DL_UNKNOWN,
-   WSSFM1XRX_DL_DISCRIMINATE_ERROR
+	WSSFM1XRX_DL_SUCCESS,      /* Downlink successfully processed */
+	WSSFM1XRX_DL_HEAD_ERROR,   /* Could not find RX */
+	WSSFM1XRX_DL_TAIL_ERROR,   /* Could not find \r */
+	WSSFM1XRX_DL_LENGTH_ERROR, /* Wrong length */
+	WSSFM1XRX_DL_TIME_OK,		/*Time success*/
+	WSSFM1XRX_DL_UNKNOWN,
+	WSSFM1XRX_DL_DISCRIMINATE_ERROR
 } WSSFM1XRX_DL_Return_t;
 
 /**Frequency  Hz - Uplink********************************************************/
@@ -334,7 +334,7 @@ WSSFM1XRX_Return_t WSSFM1XRX_ResetModule(WSSFM1XRXConfig_t *obj ,WSSFM1XRX_WaitM
  * @param obj Structure containing all data from the Sigfox module.
  * @param Pointer to function delay blocking or non blocking, of type WSSFM1XRX_WaitMode_t
  * @return WSSFM1XRX_Return_t.
-*/
+ */
 WSSFM1XRX_Return_t WSSFM1XRX_CheckModule(WSSFM1XRXConfig_t *obj, WSSFM1XRX_WaitMode_t Wait);
 
 /**
@@ -364,7 +364,7 @@ WSSFM1XRX_Return_t WSSFM1XRX_GetVoltage(WSSFM1XRXConfig_t *obj, WSSFM1XRX_WaitMo
 
 /**
  * @brief Function Send command to the Wisol module.
-* @param obj Structure containing all data from the Sigfox module.
+ * @param obj Structure containing all data from the Sigfox module.
  * @param Payload containing string to transmitions at Wisol module.
  * @param ExpectedResponse expectedResponse expected Response from module Wisol .
  * @param Pointer to function delay blocking or non blocking, of type WSSFM1XRX_WaitMode_t
@@ -384,7 +384,7 @@ WSSFM1XRX_Return_t WSSFM1XRX_AskChannels(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMo
  * @brief Function verificate channels of the transceiver.
  * @param obj Structure containing all data from the Sigfox module.
  * @return Operation result in the form WSSFM1XRX_Return_t.
-*/
+ */
 WSSFM1XRX_Return_t WSSFM1XRX_CheckChannels(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait );
 
 /**
@@ -467,7 +467,7 @@ WSSFM1XRX_DL_Return_t DL_DiscriminateDownLink(WSSFM1XRXConfig_t* buff);
  * @param obj Structure containing all data from the Sigfox module.
  * @param Pointer to function delay blocking or non blocking, of type WSSFM1XRX_WaitMode_t
  * @param Pointer to char *  containing Command AT to send the Sigfox module.
-  * @param Pointer to char *  to store the response of the sigfox module.
+ * @param Pointer to char *  to store the response of the sigfox module.
  * @param eDownlink downlink enable o disable (0/1)
  * 
  * @return WSSFM1XRX_Return_t.
