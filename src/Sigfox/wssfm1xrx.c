@@ -2,8 +2,8 @@
  * *******************************************************************************
  * @file WSSFM1XRX.c
  * @author julian bustamante
- * @version 1.4.2
- * @date Jan 5 , 2020
+ * @version 1.4.4
+ * @date Jan 10 , 2020
  * @brief Sigfox interface for the sigfox module. Interface
  * specific for module wisol SFM11R2D.
  *********************************************************************************/
@@ -80,6 +80,14 @@ const char *WSSFM1XRX_DL_FREQUENCIES[6] ={
  * @return Operation result in the form WSSFM1XRX_Return_t.
  */
 WSSFM1XRX_Return_t WSSFM1XRX_Init(WSSFM1XRXConfig_t *obj, DigitalFcn_t Reset, DigitalFcn_t Reset2, TxFnc_t Tx_Wssfm1xrx,WSSFM1XRX_FreqUL_t Frequency_Tx ,TickReadFcn_t TickRead,char* Input , uint8_t SizeInput, uint8_t MaxNumberRetries){
+	WSSFM1XRX_Return_t RetValue = WSSFM1XRX_INIT_OK;
+
+	if( (obj == NULL) || (Reset == NULL) || (Reset2 == NULL) || (Tx_Wssfm1xrx == NULL) || (TickRead == NULL) ){
+		RetValue = WSSFM1XRX_FAILURE;
+	}else{
+		
+	}
+
 	obj->RST=Reset;
 	obj->RST2=Reset2;
 	obj->TX_WSSFM1XRX=Tx_Wssfm1xrx;
@@ -91,9 +99,9 @@ WSSFM1XRX_Return_t WSSFM1XRX_Init(WSSFM1XRXConfig_t *obj, DigitalFcn_t Reset, Di
 	obj->SizeBuffRx = SizeInput;
 	obj->State_Api = WSSFM1XRX_IDLE; /**/
 	obj->State_W = WSSFM1XRX_W_IDLE; /*State Idle function Wait non blocking*/
-	memset( (void *) obj->RxFrame,0,obj->SizeBuffRx);
+	(void)memset( (void *) obj->RxFrame,0,obj->SizeBuffRx);
 	obj->MaxNumberRetries = MaxNumberRetries;
-	return WSSFM1XRX_INIT_OK;
+	return RetValue;
 }
 
 /*WSSFM1XRX_*/
@@ -125,7 +133,10 @@ WSSFM1XRX_Return_t WSSFM1XRX_Wait_NonBlock(WSSFM1XRXConfig_t *obj, uint32_t msec
 		obj->State_W = WSSFM1XRX_W_IDLE;
 		obj->State_Api = WSSFM1XRX_IDLE; /*Cuando vence el tiempo mando el comando de nuevo*/
 		RetValue = WSSFM1XRX_TIMEOUT ;
-	}else RetValue = WSSFM1XRX_WAITING;
+	}else 
+	{
+		RetValue = WSSFM1XRX_WAITING;
+	}
 	return RetValue;
 
 }
@@ -170,7 +181,8 @@ WSSFM1XRX_Return_t WSSFM1XRX_Sleep(WSSFM1XRXConfig_t *obj ,WSSFM1XRX_WaitMode_t 
  * @return void.
  */
 WSSFM1XRX_Return_t WSSFM1XRX_WakeUP(WSSFM1XRXConfig_t *obj ,WSSFM1XRX_WaitMode_t Wait  ) {
-	static WSSFM1XRX_Return_t RetValue = WSSFM1XRX_NONE, RetValueAux = WSSFM1XRX_NONE;  
+	static WSSFM1XRX_Return_t RetValue = WSSFM1XRX_NONE;
+	static WSSFM1XRX_Return_t RetValueAux = WSSFM1XRX_NONE;  
 	if( WSSFM1XRX_NONE ==  RetValueAux ) {
 		obj->RST(SF_FALSE);
 		RetValueAux = WSSFM1XRX_WAITING;
@@ -309,17 +321,27 @@ WSSFM1XRX_Return_t WSSFM1XRX_SendRawMessage(WSSFM1XRXConfig_t *obj,char* Payload
 		obj->State_Api = WSSFM1XRX_RUNNING;
 		if(obj->NumberRetries++ > obj->MaxNumberRetries) {
 			obj->NumberRetries = 0;
-			return WSSFM1XRX_MAX_RETRIES_REACHED;
+			RetValue = WSSFM1XRX_MAX_RETRIES_REACHED; /* misra c 15.5*/
 		}
 
 	}
 	/*expected is confirmed in to WSSFM1XRX_WaitForResponse*/
-	RetValue = WSSFM1XRX_WaitForResponse(obj,ExpectedResponse,Wait,msec);
+	if(RetValue == WSSFM1XRX_MAX_RETRIES_REACHED){
+		/*compliant misra c 15.5*/
+	}else
+	{
+		RetValue = WSSFM1XRX_WaitForResponse(obj,ExpectedResponse,Wait,msec);
+	}
+	
+
 
 	/*para que funcione block or non block*/
-	if(WSSFM1XRX_TIMEOUT == RetValue || WSSFM1XRX_OK_RESPONSE == RetValue){
-		if( obj->RxReady ){ 
-			if(BuffStr != NULL) strcpy((char*)BuffStr, (char*)obj->RxFrame) ;
+	if( (WSSFM1XRX_TIMEOUT == RetValue) || (WSSFM1XRX_OK_RESPONSE == RetValue) ){ /*misra c 12.1*/
+		if( SF_TRUE == obj->RxReady ){ /*misra c 14.4*/
+			if(BuffStr != NULL)  /*misra c 15.6*/
+			{
+				(void)strcpy((char*)BuffStr, (char*)obj->RxFrame) ; /*misra c 17.7*/
+			}
 			obj->NumberRetries = 0;
 		}
 		obj->State_Api = WSSFM1XRX_IDLE;
@@ -344,7 +366,7 @@ WSSFM1XRX_Return_t WSSFM1XRX_AskChannels(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMo
 	if(WSSFM1XRX_OK_RESPONSE == RetVal){
 		rspPtr=strchr( ((const char *)obj->RxFrame) , ',');
 		if(rspPtr != NULL){
-			Channels->x = (*(rspPtr-1))-'0';
+			Channels->x = (*(rspPtr-1))-'0'; /*no compliant misra c 18.4*/
 			Channels->y = (*(rspPtr+1))-'0';
 		}
 	}
@@ -367,7 +389,8 @@ WSSFM1XRX_Return_t WSSFM1XRX_CheckChannels(WSSFM1XRXConfig_t *obj,WSSFM1XRX_Wait
 	WSSFM1XRX_Return_t retval;
 	retval = WSSFM1XRX_AskChannels(obj,Wait,&Channels);
 	if(WSSFM1XRX_OK_RESPONSE == retval){
-		retval = (Channels.x == 0 || Channels.y < 3) ? WSSFM1XRX_CHANN_NO_OK : WSSFM1XRX_CHANN_OK;
+		/*misra c 10.4 & 12.1*/
+		retval = ( (Channels.x == 0) || (Channels.y < (uint8_t)3 )) ? WSSFM1XRX_CHANN_NO_OK : WSSFM1XRX_CHANN_OK;
 	}
 	return retval;
 }
@@ -399,6 +422,7 @@ WSSFM1XRX_Return_t WSSFM1XRX_ResetChannels(WSSFM1XRXConfig_t *obj, WSSFM1XRX_Wai
  * 			or WSSFM1XRX_WAITING or WSSFM1XRX_TIMEOUT
  * */
 WSSFM1XRX_Return_t WSSFM1XRX_ChangeFrequencyUL(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait , WSSFM1XRX_FreqUL_t Frequency){	
+	/*misra c 11.8*/
 	return WSSFM1XRX_SendRawMessage(obj, (char*)WSSFM1XRX_UL_FREQUENCIES[Frequency]  ,"OK",NULL,Wait,WSSFM1XRX_GENERAL_TIME_DELAY_RESP); 
 }
 
@@ -429,11 +453,15 @@ WSSFM1XRX_Return_t WSSFM1XRX_ChangeFrequencyDL(WSSFM1XRXConfig_t *obj,WSSFM1XRX_
 WSSFM1XRX_Return_t WSSFM1XRX_AskFrequencyUL(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait, WSSFM1XRX_FreqUL_t *Frequency ){
 
 	WSSFM1XRX_Return_t RetValue;
-	uint8_t i, FreqStr[11] = {'\0'};
+	uint8_t i;
+	uint8_t FreqStr[11] = {'\0'}; /*misra c 12.3*/
 
 	RetValue =	WSSFM1XRX_GetRespNoexpected(obj,Wait,"AT$IF?\r",(char*)FreqStr);
-	for(i = 0; i<6; i++) {
-		if(strstr(WSSFM1XRX_UL_FREQUENCIES[i], (const char*)FreqStr) != NULL) break;
+	for(i = 0; i< (uint8_t)6; i++) { /*misra c 10.4*/
+		if(strstr(WSSFM1XRX_UL_FREQUENCIES[i], (const char*)FreqStr) != NULL) 
+		{
+			break;
+		}
 	}
 	*Frequency = (WSSFM1XRX_FreqUL_t)i;
 	return RetValue;
@@ -473,30 +501,37 @@ WSSFM1XRX_Return_t WSSFM1XRX_SaveParameters(WSSFM1XRXConfig_t *obj, WSSFM1XRX_Wa
  */
 WSSFM1XRX_Return_t WSSFM1XRX_SendMessage(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMode_t Wait, void* data, void * CopyDataTx, uint8_t size, uint8_t eDownlink){
 
-	uint8_t slen = 2*size + 6;
+	uint8_t slen = (2*size) + (uint8_t)6; /*misra c 10.4 & 12.1*/
 	char UplinkPayload[WSSFM1XRX_MAX_DATA_SIZE_WITH_DL] = "AT$SF="; /*max length frame with downlink*/
 	uint32_t timeWait = WSSFM1XRX_SEND_MESSAGE_TIME_DELAY_RESP;
-	WSSFM1XRX_BuildFrame(UplinkPayload+6, data, size);
-	if(( obj->State_Api == WSSFM1XRX_IDLE)) obj->DownLink = eDownlink;
+	WSSFM1XRX_BuildFrame(UplinkPayload+6, data, size); /*no compliant misra c 18.4*/
+	if(( obj->State_Api == WSSFM1XRX_IDLE)) {
+		obj->DownLink = eDownlink;	/*misra c 15.6*/
+	}
 
-	if(obj->DownLink){
-		UplinkPayload[slen++]=',';
-		UplinkPayload[slen++]='1';
-		UplinkPayload[slen++]='\r';
+	if(SF_TRUE == obj->DownLink){ /*misra c 14.4*/
+		UplinkPayload[slen]=',';
+		slen++;						/*misra c 13.3*/
+		UplinkPayload[slen]='1';
+		slen++;
+		UplinkPayload[slen]='\r';
+		slen++;
 	}
 	else{
 		UplinkPayload[slen]='\r';
 	}
 
 	timeWait = eDownlink ? WSSFM1XRX_DL_TIMEOUT : WSSFM1XRX_SEND_MESSAGE_TIME_DELAY_RESP; /*WSSFM1XRX_DL_TIMEOUT*/
-	if(CopyDataTx != NULL ) memcpy(CopyDataTx,UplinkPayload,WSSFM1XRX_MAX_DATA_SIZE_WITH_DL);
+	if(CopyDataTx != NULL ) {
+		memcpy(CopyDataTx,UplinkPayload,WSSFM1XRX_MAX_DATA_SIZE_WITH_DL);
+	}
 	return WSSFM1XRX_SendRawMessage(obj, UplinkPayload, "OK", NULL, Wait, timeWait);
 }
 
 /**
  * @brief Function ISR UART receive incoming frame to Wisol module.
  * @note Example :
- * 		SigfoxISRRX(&SigfoxModule,RxChar);    //call in the  interrup serial
+ * 		SigfoxISRRX(&SigfoxModule,RxChar);    call in the  interrup serial
  * the buffer is stored in the structure obj->RxFrame.
  * 
  * @param obj Structure containing all data from the Sigfox module.
@@ -504,18 +539,31 @@ WSSFM1XRX_Return_t WSSFM1XRX_SendMessage(WSSFM1XRXConfig_t *obj,WSSFM1XRX_WaitMo
  * @return void.
  */
 void WSSFM1XRX_ISRRX(WSSFM1XRXConfig_t *obj, const char RxChar){
-	if(RxChar < CHAR_PRINT_BELOW  || RxChar > CHAR_PRINT_ABOVE) return ;  /*Char no print*/
-	if(obj->RxReady) return; /* B_uffer reveived*/
-	obj->RxFrame[obj->RxIndex++] = RxChar;
-	if (obj->RxIndex>= obj->SizeBuffRx -1) obj->RxIndex=0;
+
+	/*no compliant misra c 15.5*/
+	if( (RxChar < CHAR_PRINT_BELOW)  || (RxChar > CHAR_PRINT_ABOVE) ) {
+		return ;  /*Char no print*/
+	}
+
+	/*misra c 15.6,14.4 no compliant 15.6*/
+	if(SF_TRUE == obj->RxReady) {
+		return; /* B_uffer reveived*/
+	}
+	obj->RxFrame[obj->RxIndex] = RxChar; /*misra c 13.3*/
+	obj->RxIndex++;
+
+	if (obj->RxIndex >= (obj->SizeBuffRx -1) ) { /*no compliant misra c 10.4*/
+		obj->RxIndex=0; 
+	}
 	obj->RxFrame[obj->RxIndex] = 0;
 	if (RxChar =='\r'){
 		/*  Check if there is a downlink request */
-		if(!obj->DownLink){
+		if(SF_FALSE == obj->DownLink){
 			obj->RxIndex = 0;
 			obj->RxReady = SF_TRUE; /* Framed completed*/
-		}else
-			obj->DownLink = 0; /* Clear the downlink request */
+		}else{	/*misra c 15.6*/
+			obj->DownLink = SF_FALSE; /* Clear the downlink request */
+		}
 	}
 }
 
@@ -536,9 +584,15 @@ WSSFM1XRX_Return_t WSSFM1XRX_MatchResponse(WSSFM1XRXConfig_t *obj, char *expecte
 	uint8_t Rprocess = WSSFM1XRX_RSP_NOMATCH;
 	if(obj->RxReady){
 		if(expectedResponse != NULL){
-			if(strstr((const char *) obj->RxFrame,(char *)expectedResponse) != NULL) Rprocess = WSSFM1XRX_OK_RESPONSE;
-			else Rprocess = WSSFM1XRX_RSP_NOMATCH;
-		}else Rprocess = WSSFM1XRX_OK_RESPONSE;
+			if(strstr((const char *) obj->RxFrame,(char *)expectedResponse) != NULL) {
+				 Rprocess = WSSFM1XRX_OK_RESPONSE;
+			}
+			else {
+				Rprocess = WSSFM1XRX_RSP_NOMATCH;
+			}
+		}else { 
+			Rprocess = WSSFM1XRX_OK_RESPONSE;
+		}
 	}
 	return Rprocess;
 }
@@ -564,7 +618,7 @@ WSSFM1XRX_DL_Return_t DL_DiscriminateDownLink(WSSFM1XRXConfig_t* obj){
 	/* Check payload length */
 	payLoadTail = (uint8_t *)strstr((const char*)payLoadHead, "\r");
 
-	if(!payLoadTail)
+	if(SF_FALSE == payLoadTail)
 		return WSSFM1XRX_DL_TAIL_ERROR;
 
 	if((payLoadTail - payLoadHead) != WSSFM1XRX_DL_PAYLOAD_LENGTH)
@@ -587,7 +641,9 @@ WSSFM1XRX_DL_Return_t DL_DiscriminateDownLink(WSSFM1XRXConfig_t* obj){
 
 /*Private Functions ********************************************************************************************************************************/
 static void WSSFM1XRX_StringTX(WSSFM1XRXConfig_t *obj, char* WSSFM1XRX_String){
-	while(*WSSFM1XRX_String) obj->TX_WSSFM1XRX(NULL,*WSSFM1XRX_String++);
+	while(*WSSFM1XRX_String) {
+		 obj->TX_WSSFM1XRX(NULL,*WSSFM1XRX_String++);
+	}
 }
 
 /*Private Functions ***********************************************************************************************************************************************/
@@ -607,9 +663,11 @@ static void WSSFM1XRX_ResetObject(WSSFM1XRXConfig_t *obj){
  * @brief Function order the frame.
  */
 static void WSSFM1XRX_BuildFrame(char* str, void* data, uint8_t size){
-	int8_t  i,j;   
-	uint8_t xbyte, finalsize;
-	uint8_t *bdata = (uint8_t*)data;
+	int8_t  i;
+	int8_t  j;   
+	uint8_t xbyte;
+	uint8_t finalsize;
+	uint8_t *bdata = (uint8_t*)data; /*no compliant misra c 11.5*/
 	size = (size > WSSFM1XRX_MAX_BYTE_TX_FRAME )? WSSFM1XRX_MAX_BYTE_TX_FRAME : size;
 	finalsize = size*2;
 	str[finalsize]='\0';
@@ -628,7 +686,7 @@ static WSSFM1XRX_Return_t WSSFM1XRX_WaitForResponse(WSSFM1XRXConfig_t *obj , cha
 	uint8_t retvalue = WSSFM1XRX_NONE, retvalueM = WSSFM1XRX_NONE;
 	retvalue =  Wait(obj,msec); /*Return WAITING or TIMEOUT*/
 	retvalueM = WSSFM1XRX_MatchResponse(obj,ExpectedResponse); /*Return Response ok or No match*/
-	return (retvalueM == WSSFM1XRX_OK_RESPONSE)? retvalueM  : retvalue  ;/*Delay NonBlocking or Non-blocking*/
+	return (retvalueM == (uint8_t)WSSFM1XRX_OK_RESPONSE)? retvalueM  : retvalue  ;/*Delay NonBlocking or Non-blocking*/
 }
 
 
@@ -636,8 +694,8 @@ static WSSFM1XRX_Return_t WSSFM1XRX_WaitForResponse(WSSFM1XRXConfig_t *obj , cha
 
 char NibbletoX(uint8_t value){
 	char ch;
-	ch = (char)(value & 0x0F) + '0';
-	return (ch > '9')? ch+7u : ch;
+	ch = (char)(value & 0x0F) + (char)'0';
+	return (ch > (char)'9')? (ch + 7u) : ch;
 }
 
 
